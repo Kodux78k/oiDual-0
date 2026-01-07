@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>DUAL // UNIFIED · OS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#020202">
+<link rel="apple-touch-icon" href="./icon-192.png">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('Service Worker Registered'));
+  }
+</script>
+  <meta name="description" content="DUAL Unified — Code Vault & Runtime Environment">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;400;500;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+
+  <style>
+    /* --- ARCHITECTURE: DESIGN TOKENS --- */
+    :root {
+      /* DARK MODE (DEFAULT) */
+      --bg-void: #020202;
+      --bg-panel: #0a0a0c;
+      
+      --glass-surface: rgba(20, 20, 25, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-highlight: rgba(255, 255, 255, 0.03);
+      --glass-shadow: rgba(0, 0, 0, 0.9);
+      
+      --neon-cyan: #00f2ff;
+      --neon-purple: #bd00ff;
+      --alert-red: #ff4d4d;
+      
+      --text-main: #e5e7eb;
+      --text-muted: #6b7280;
+      
+      --font-ui: 'Inter', sans-serif;
+      --font-code: 'JetBrains Mono', monospace;
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 24px;
+      
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* LIGHT MODE (FROST PROTOCOL) */
+    :root[data-theme="light"] {
+      --bg-void: #eef2f6;
+      --bg-panel: #ffffff;
+      
+      --glass-surface: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(0, 0, 0, 0.08);
+      --glass-highlight: rgba(255, 255, 255, 0.4);
+      --glass-shadow: rgba(0, 0, 0, 0.1);
+      
+      --neon-cyan: #008088; /* Darker Teal for contrast */
+      --neon-purple: #8a00bc;
+      --alert-red: #dc2626;
+      
+      --text-main: #111827;
+      --text-muted: #64748b;
+    }
+
+    /* --- RESET & BASE --- */
+    * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+    
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      overflow: hidden;
+      height: 100vh; width: 100vw;
+      transition: background-color 0.4s ease, color 0.4s ease;
+    }
+
+    /* --- UTILITIES --- */
+    .hidden { display: none !important; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    
+    .state-translated-x { transform: translateX(100%); }
+    .state-visible-y { transform: translateY(0) !important; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
+
+    /* --- LAYERS --- */
+
+    /* Layer 0: Ambient */
+    .void-ambient {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(circle at 50% 120%, var(--glass-highlight), transparent 60%);
+      opacity: 0.1; transition: opacity 0.4s;
+    }
+
+    /* Layer 1: Nav Frame */
+    #navFrame {
+      position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 0;
+    }
+
+    /* Layer 2: UI Overlays */
+    .top-bar {
+      position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 40;
+      display: flex; align-items: center; gap: 1rem;
+      background: var(--glass-surface); backdrop-filter: blur(12px);
+      padding: 0.5rem 1rem; border-radius: 99px;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 4px 20px -5px var(--glass-shadow);
+      transition: all 0.4s;
+    }
+    .brand-text { font-family: var(--font-code); font-size: 0.75rem; color: var(--text-muted); letter-spacing: 2px; }
+    .sep { height: 12px; width: 1px; background: var(--text-muted); opacity: 0.3; }
+    .theme-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; transition: color 0.3s; }
+    .theme-btn:hover { color: var(--text-main); }
+
+    /* Sidebars */
+    .sidebar {
+      position: fixed; top: 50%; transform: translateY(-50%); z-index: 40;
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .sidebar.right { right: 0.75rem; }
+    .sidebar.left { left: 0.75rem; }
+
+    .icon-btn {
+      width: 2rem; height: 2rem; border-radius: var(--radius-sm);
+      background: var(--glass-surface); border: 1px solid var(--glass-border);
+      color: var(--text-muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; backdrop-filter: blur(4px);
+    }
+    .icon-btn:hover { background: var(--glass-highlight); color: var(--text-main); border-color: var(--text-muted); }
+    
+    .nav-btn { color: var(--neon-cyan); font-family: var(--font-code); font-size: 0.9rem; }
+    .nav-btn:hover { background: var(--neon-cyan); color: var(--bg-void); box-shadow: 0 0 12px var(--neon-cyan); }
+
+    /* --- MONOLITH --- */
+    .monolith-wrapper {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem; pointer-events: none;
+      perspective: 1200px;
+    }
+
+    .monolith {
+      width: 100%; max-width: 64rem; height: 80vh; max-height: 850px;
+      background: var(--glass-surface);
+      backdrop-filter: blur(30px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 40px 80px -12px var(--glass-shadow);
+      
+      display: flex; flex-direction: column; position: relative; overflow: hidden;
+      
+      /* 3D State: Inactive */
+      opacity: 0; transform: translateY(60px) rotateX(10deg) scale(0.95); transform-style: preserve-3d;
+      transition: all 0.6s var(--ease-out-expo);
+    }
+
+    /* 3D State: Active */
+    body.system-active .monolith {
+      opacity: 1; transform: translateY(0) rotateX(0) scale(1); pointer-events: auto;
+    }
+
+    /* Monolith Internals */
+    .mono-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--glass-border);
+      background: var(--glass-highlight);
+    }
+    .mono-brand { display: flex; align-items: center; gap: 0.75rem; }
+    .brand-icon { 
+      width: 2rem; height: 2rem; background: rgba(128,128,128,0.1); 
+      border: 1px solid var(--glass-border); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; color: var(--neon-cyan);
+    }
+    .brand-title { font-weight: 700; font-size: 0.875rem; letter-spacing: 0.05em; color: var(--text-main); }
+    
+    .status-badge {
+      font-family: var(--font-code); font-size: 10px; padding: 3px 8px;
+      border-radius: 4px; background: rgba(128,128,128,0.1); border: 1px solid var(--glass-border);
+      color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; transition: all 0.3s;
+    }
+
+    .mono-body { flex: 1; display: flex; position: relative; overflow: hidden; }
+
+    /* View: Vault */
+    .vault-view {
+      width: 100%; height: 100%; padding: 1.5rem; overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+
+    .actions-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;
+    }
+    @media (min-width: 768px) { .actions-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .action-card {
+      padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--glass-border);
+      background: rgba(128,128,128,0.05); color: var(--text-muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.8rem;
+      transition: all 0.2s; font-weight: 500;
+    }
+    .action-card:hover { background: var(--glass-highlight); color: var(--text-main); border-color: var(--text-muted); }
+    
+    .btn-create { background: var(--neon-cyan); color: var(--bg-void); border: none; font-weight: 700; }
+    .btn-create:hover { background: var(--text-main); color: var(--bg-void); box-shadow: 0 0 20px rgba(128,128,128,0.2); }
+
+    .action-card.dashed { border-style: dashed; border-color: var(--text-muted); opacity: 0.7; }
+    .action-card.dashed:hover { border-color: var(--neon-cyan); color: var(--text-main); background: rgba(128,128,128,0.05); opacity: 1; }
+
+    .list-header { display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding: 0 4px; }
+    .list-label { font-size: 0.7rem; font-family: var(--font-code); color: var(--text-muted); letter-spacing: 0.5px; }
+
+    .stack-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem; margin-bottom: 0.5rem;
+      background: rgba(128,128,128,0.03); border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;
+    }
+    .stack-item:hover { border-color: var(--neon-cyan); background: var(--glass-highlight); transform: translateX(4px); }
+    
+    .stack-info { display: flex; align-items: center; gap: 0.75rem; overflow: hidden; }
+    .stack-icon { 
+      width: 2rem; height: 2rem; border-radius: 6px; background: rgba(128,128,128,0.1); 
+      display: flex; align-items: center; justify-content: center; color: var(--neon-cyan); opacity: 0.7;
+    }
+    .stack-item:hover .stack-icon { opacity: 1; color: var(--neon-cyan); background: rgba(128,128,128,0.2); }
+    .stack-text h4 { font-size: 0.85rem; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stack-text span { font-size: 0.65rem; font-family: var(--font-code); color: var(--text-muted); }
+
+    .stack-actions { display: flex; gap: 0.5rem; opacity: 0; transition: opacity 0.2s; }
+    .stack-item:hover .stack-actions { opacity: 1; }
+    
+    .mini-btn { width: 2rem; height: 2rem; border-radius: 6px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+    .btn-run { background: var(--neon-cyan); color: var(--bg-void); }
+    .btn-run:hover { background: var(--text-main); color: var(--bg-void); }
+    .btn-del { border: 1px solid rgba(255, 77, 77, 0.2); background: transparent; color: var(--alert-red); }
+    .btn-del:hover { background: var(--alert-red); color: white; border-color: var(--alert-red); }
+
+    /* View: Editor */
+    .editor-view {
+      position: absolute; inset: 0; z-index: 10;
+      background: var(--bg-panel); padding: 1.5rem;
+      display: flex; flex-direction: column;
+      transition: transform 0.5s var(--ease-out-expo);
+    }
+    
+    .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .editor-title { color: var(--neon-cyan); font-family: var(--font-code); font-size: 0.8rem; letter-spacing: 1px; }
+    .btn-cancel { background: rgba(128,128,128,0.1); color: var(--text-muted); border: none; padding: 4px 12px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; transition: 0.2s; }
+    .btn-cancel:hover { background: rgba(128,128,128,0.2); color: var(--text-main); }
+
+    .input-title {
+      width: 100%; background: rgba(128,128,128,0.05); border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 0.75rem;
+      color: var(--text-main); font-family: var(--font-code); font-size: 0.8rem; transition: 0.2s;
+    }
+    .input-title:focus { border-color: var(--neon-cyan); background: var(--bg-panel); }
+    
+    .code-area {
+      flex: 1; position: relative; border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm); overflow: hidden; background: rgba(0,0,0,0.2);
+    }
+    textarea#modContent {
+      width: 100%; height: 100%; background: transparent; border: none; padding: 1rem;
+      color: #a7f3d0; font-family: var(--font-code); font-size: 0.75rem; resize: none; line-height: 1.5;
+    }
+    /* Darken code text in light mode for readability */
+    :root[data-theme="light"] textarea#modContent { color: #065f46; background: rgba(255,255,255,0.5); }
+
+    .btn-save {
+      width: 100%; margin-top: 1rem; padding: 0.75rem;
+      background: var(--neon-cyan); color: var(--bg-void); border: none; border-radius: var(--radius-md);
+      font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-save:hover { background: var(--text-main); color: var(--bg-void); box-shadow: 0 0 15px rgba(128,128,128,0.2); }
+
+    /* Runtime Layer */
+    .runtime-layer {
+      position: absolute; inset: 0; z-index: 20; background: black; /* Always dark for cinema mode */
+      display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.5s var(--ease-out-expo);
+    }
+    
+    .runtime-bar {
+      height: 2.5rem; background: #0a0a0c; border-bottom: 1px solid #333;
+      display: flex; align-items: center; justify-content: space-between; padding: 0 1rem;
+    }
+    .runtime-indicator { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-code); font-size: 0.7rem; color: #00f2ff; letter-spacing: 0.5px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #00f2ff; animation: pulse 2s infinite; }
+    
+    .runtime-frame-wrap { flex: 1; position: relative; background: white; }
+    .scanline {
+      position: absolute; inset: 0; pointer-events: none; opacity: 0.15; mix-blend-mode: overlay;
+      background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.2) 50%); background-size: 100% 4px;
+    }
+
+    /* Footer Pulse */
+    .mono-footer { height: 2px; width: 100%; background: var(--bg-panel); position: relative; overflow: hidden; margin-top: auto; }
+    #pulseBar {
+      position: absolute; inset: 0; width: 50%;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+      animation: scan 3s linear infinite; opacity: 0; transition: opacity 0.3s;
+    }
+
+    @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* --- ORB TRIGGER --- */
+    .orb-container {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); z-index: 60;
+      transition: all 0.5s var(--ease-out-expo);
+    }
+    
+    .orb-btn {
+      width: 2.75rem; height: 2.75rem; 
+      border-radius: 50%; border: none; cursor: pointer;
+      background: var(--glass-surface); backdrop-filter: blur(8px);
+      box-shadow: 0 0 0 1px var(--glass-border), 0 0 20px rgba(0,0,0,0.1);
+      position: relative; display: flex; align-items: center; justify-content: center;
+      transition: 0.3s;
+    }
+    .orb-btn:hover { box-shadow: 0 0 0 1px var(--neon-cyan), 0 0 30px var(--neon-cyan); }
+    
+    .orb-core { 
+      width: 6px; height: 6px; background: var(--text-main); border-radius: 50%; 
+      box-shadow: 0 0 10px var(--glass-highlight); transition: 0.3s; 
+    }
+    .orb-btn:hover .orb-core { background: var(--neon-cyan); box-shadow: 0 0 15px var(--neon-cyan); transform: scale(1.1); }
+    
+    .orb-ring { 
+      position: absolute; inset: 3px; border-radius: 50%; 
+      border: 1px solid transparent; border-top-color: var(--neon-cyan); 
+      animation: spin 6s linear infinite; opacity: 0.6; 
+    }
+    .orb-ring.inner { 
+      inset: 8px; border-top-color: transparent; border-bottom-color: var(--neon-purple); 
+      animation-direction: reverse; opacity: 0.5; animation-duration: 8s; 
+    }
+
+    /* --- TOAST --- */
+    #toast {
+      position: fixed; top: 4rem; left: 50%; transform: translateX(-50%);
+      padding: 0.5rem 1rem; border-radius: var(--radius-sm);
+      background: rgba(0,0,0,0.9); border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan); font-family: var(--font-code); font-size: 0.75rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 100;
+      transition: all 0.4s var(--ease-out-expo);
+      pointer-events: none; opacity: 1;
+    }
+    
+    #toast.toast-hidden { opacity: 0; transform: translate(-50%, -10px); }
+
+  </style>
+</head>
+<body>
+
+  <div class="void-ambient"></div>
+  <iframe id="navFrame" src="./index.html"></iframe>
+
+  <div class="top-bar">
+    <div class="brand-text"></div>
+    <div class="sep"></div>
+    <button id="themeToggle" class="theme-btn" title="Toggle Theme"><i class="fa-solid fa-circle-half-stroke"></i></button>
+  </div>
+
+  <div class="sidebar right">
+    <button class="icon-btn nav-btn" data-url="https://kodux78k.github.io/oiDual-DeX/" title="Void">Φ</button>
+    <button class="icon-btn nav-btn" data-url="https://kodux78k.github.io/oiDual-Vivivi-1/" title="Vivivi">꩜</button>
+    <button class="icon-btn nav-btn" data-url="https://kodux78k.github.io/DualInfodose-VirgemHuB/index.html" title="Nosolar">☼</button>
+  </div>
+
+  <div class="sidebar left">
+    <button id="uploadBtn" class="icon-btn" title="Import File"><i class="fa-solid fa-upload"></i></button>
+    <input type="file" id="uploadInput" hidden accept=".html,.js,.json">
+    <button id="remoteBtn" class="icon-btn" title="Fetch Remote"><i class="fa-solid fa-globe"></i></button>
+  </div>
+
+  <div class="monolith-wrapper">
+    <div class="monolith">
+      
+      <div class="mono-header">
+        <div class="mono-brand">
+          <div class="brand-icon"><i data-lucide="layers" style="width:16px;height:16px;"></i></div>
+          <div class="brand-title">DUAL <span style="opacity:0.3; margin:0 4px;">//</span> MONOLITH</div>
+        </div>
+        <div id="sysStatus" class="status-badge">STANDBY</div>
+      </div>
+
+      <div class="mono-body">
+        <div id="viewVault" class="vault-view">
+          <div class="actions-grid">
+            <button id="createBtn" class="action-card btn-create">
+              <i data-lucide="plus-square" style="width:16px;"></i> <span>NOVO</span>
+            </button>
+            <div id="dropZone" class="action-card dashed">
+              <i data-lucide="upload" style="width:16px;"></i> <span style="font-family: var(--font-code)">UPLOAD</span>
+            </div>
+            <button id="backupBtn" class="action-card">
+              <i data-lucide="download" style="width:16px;"></i> <span>BACKUP</span>
+            </button>
+            <button id="safeBtn" class="action-card">
+              <i data-lucide="shield" style="width:16px; color:var(--alert-red)"></i> <span id="safeLabel">SAFE</span>
+            </button>
+          </div>
+
+          <div class="list-header">
+            <span class="list-label">VAULT STORAGE</span>
+            <span class="list-label" id="vaultCount">0 ITEMS</span>
+          </div>
+          <div id="stackList" class="flex flex-col gap-3" style="padding-bottom: 3rem;"></div>
+        </div>
+
+        <div id="viewEditor" class="editor-view state-translated-x">
+          <div class="editor-header">
+            <div class="editor-title">:: MODULE CREATOR</div>
+            <button id="cancelEditor" class="btn-cancel">CANCELAR</button>
+          </div>
+          <input id="modTitle" type="text" placeholder="NOME DO MÓDULO" class="input-title">
+          <div class="code-area">
+            <textarea id="modContent" placeholder=""></textarea>
+          </div>
+          <div class="flex gap-3">
+            <button id="saveEditor" class="btn-save">SALVAR NO VAULT</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mono-footer">
+        <div id="pulseBar"></div>
+      </div>
+
+      <div id="runtimeLayer" class="runtime-layer">
+        <div class="runtime-bar">
+          <div class="runtime-indicator">
+            <div class="dot"></div> <span>RUNTIME // ACTIVE</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="exportBtn" class="btn-cancel" style="font-size:10px;">EXPORT TO NAV</button>
+            <button id="closeRuntime" class="icon-btn" style="width:24px; height:24px; border:none; background:transparent;"><i data-lucide="x" style="width:16px;"></i></button>
+          </div>
+        </div>
+        <div class="runtime-frame-wrap">
+<iframe
+  id="appFrame"
+  style="border:0;width:100%;height:100%;display:block;"
+  sandbox="allow-scripts allow-forms allow-modals allow-same-origin allow-pointer-lock">
+</iframe>
+          <div class="scanline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="orb-container">
+    <button id="orbBtn" class="orb-btn" aria-label="Toggle System">
+      <div class="orb-core"></div>
+      <div class="orb-ring"></div>
+      <div class="orb-ring inner"></div>
+    </button>
+  </div>
+
+  <div id="toast" class="toast-hidden">
+    <span id="toastMsg">System Ready</span>
+  </div>
+
+  <script>
+  const App = {
+    config: {
+      vaultKey: 'dual_vault_data',
+      themeKey: 'dual_theme_mode',
+      navKey: 'dual_nav_state',
+      sysKey: 'dual_system_active'
+    },
+    state: {
+      active: false,
+      safeMode: true,
+      stacks: [],
+      editingId: null // novo: id do módulo que está sendo editado (null = criar novo)
+    },
+
+    init() {
+      this.cacheDOM();
+      this.loadData();
+      this.bindEvents();
+      if(window.lucide) lucide.createIcons();
+
+      const theme = localStorage.getItem(this.config.themeKey);
+      if(theme) document.documentElement.setAttribute('data-theme', theme);
+
+      const wasActive = localStorage.getItem(this.config.sysKey) === 'true';
+      if(wasActive) this.toggleSystem(true);
+      else setTimeout(() => this.dom.orbBtn.classList.add('ready'), 500);
+    },
+
+    cacheDOM() {
+      this.dom = {
+        body: document.body,
+        navFrame: document.getElementById('navFrame'),
+        orbBtn: document.getElementById('orbBtn'),
+        sysStatus: document.getElementById('sysStatus'),
+        stackList: document.getElementById('stackList'),
+        viewVault: document.getElementById('viewVault'),
+        viewEditor: document.getElementById('viewEditor'),
+        runtimeLayer: document.getElementById('runtimeLayer'),
+        appFrame: document.getElementById('appFrame'),
+        modTitle: document.getElementById('modTitle'),
+        modContent: document.getElementById('modContent'),
+        toast: document.getElementById('toast'),
+        pulseBar: document.getElementById('pulseBar'),
+        safeLabel: document.getElementById('safeLabel'),
+        uploadInput: document.getElementById('uploadInput'),
+        remoteBtn: document.getElementById('remoteBtn')
+      };
+    },
+
+    bindEvents() {
+      this.dom.orbBtn.addEventListener('click', () => this.toggleSystem());
+      document.querySelectorAll('[data-url]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this.dom.navFrame.src = btn.dataset.url;
+          this.showToast(`NAV: ${btn.title}`);
+        });
+      });
+
+      document.getElementById('createBtn').addEventListener('click', () => this.toggleEditor(true));
+      document.getElementById('cancelEditor').addEventListener('click', () => this.cancelEditing());
+      document.getElementById('saveEditor').addEventListener('click', () => this.saveModule());
+
+      document.getElementById('dropZone').addEventListener('click', () => this.dom.uploadInput.click());
+      this.dom.uploadInput.addEventListener('change', (e) => this.handleUpload(e));
+      document.getElementById('uploadBtn').addEventListener('click', () => this.dom.uploadInput.click());
+      document.getElementById('backupBtn').addEventListener('click', () => this.exportVault());
+
+      document.getElementById('safeBtn').addEventListener('click', () => this.toggleSafe());
+
+      document.getElementById('themeToggle').addEventListener('click', () => {
+         const current = document.documentElement.getAttribute('data-theme');
+         const next = current === 'light' ? 'dark' : 'light';
+         document.documentElement.setAttribute('data-theme', next);
+         localStorage.setItem(this.config.themeKey, next);
+         this.showToast(`THEME: ${next.toUpperCase()}`);
+      });
+
+      document.getElementById('closeRuntime').addEventListener('click', () => this.closeRuntime());
+      document.getElementById('exportBtn').addEventListener('click', () => {
+        if(this.dom.appFrame.srcdoc) {
+          const blob = new Blob([this.dom.appFrame.srcdoc], {type:'text/html'});
+          this.dom.navFrame.src = URL.createObjectURL(blob);
+          this.showToast("EXPORTED TO NAV");
+          this.closeRuntime();
+        }
+      });
+
+      // Novo: botão globo aceita URLs
+      this.dom.remoteBtn.addEventListener('click', () => this.handleRemoteUrl());
+    },
+
+    loadData() {
+      try {
+        const raw = localStorage.getItem(this.config.vaultKey);
+        if(raw) this.state.stacks = JSON.parse(raw);
+      } catch(e) { this.state.stacks = []; }
+      this.renderVault();
+
+      const last = localStorage.getItem(this.config.navKey);
+      if(last && last !== 'about:blank') this.dom.navFrame.src = last;
+
+      this.dom.navFrame.onload = () => {
+        try { localStorage.setItem(this.config.navKey, this.dom.navFrame.contentWindow.location.href); } catch(e){}
+      };
+    },
+
+    toggleSystem(force) {
+      this.state.active = force !== undefined ? force : !this.state.active;
+      localStorage.setItem(this.config.sysKey, this.state.active);
+      if(this.state.active) {
+        this.dom.body.classList.add('system-active');
+        this.dom.sysStatus.innerText = "ONLINE";
+        this.dom.sysStatus.style.color = "var(--neon-cyan)";
+        this.dom.sysStatus.style.borderColor = "var(--neon-cyan)";
+      } else {
+        this.dom.body.classList.remove('system-active');
+        this.dom.sysStatus.innerText = "STANDBY";
+        this.dom.sysStatus.style.color = "var(--text-muted)";
+        this.dom.sysStatus.style.borderColor = "var(--glass-border)";
+      }
+    },
+
+    toggleEditor(show, moduleObj = null) {
+      if(show) {
+        this.dom.viewEditor.classList.remove('state-translated-x');
+        if(moduleObj) {
+          // abrir em modo edição
+          this.state.editingId = moduleObj.id;
+          this.dom.modTitle.value = moduleObj.title || '';
+          this.dom.modContent.value = moduleObj.content || '';
+        } else {
+          this.state.editingId = null;
+          this.dom.modTitle.value = '';
+          this.dom.modContent.value = '';
+        }
+        this.dom.modTitle.focus();
+      } else {
+        this.dom.viewEditor.classList.add('state-translated-x');
+      }
+    },
+
+    cancelEditing() {
+      this.state.editingId = null;
+      this.toggleEditor(false);
+    },
+
+    toggleSafe() {
+      this.state.safeMode = !this.state.safeMode;
+      this.dom.safeLabel.innerText = this.state.safeMode ? "SAFE" : "RAW";
+      this.dom.safeLabel.style.color = this.state.safeMode ? "inherit" : "var(--alert-red)";
+      this.showToast(this.state.safeMode ? "PROTOCOL: SAFE" : "PROTOCOL: RAW (UNSAFE)");
+    },
+
+    exportVault() {
+      const data = JSON.stringify(this.state.stacks, null, 2);
+      const blob = new Blob([data], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dual-vault-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.showToast("VAULT EXPORTED");
+    },
+
+    saveModule() {
+      const title = this.dom.modTitle.value.trim();
+      const content = this.dom.modContent.value;
+      if(!title) return this.showToast("ERROR: TITLE REQUIRED");
+
+      if(this.state.editingId) {
+        // Atualiza módulo existente
+        const idx = this.state.stacks.findIndex(s => s.id === this.state.editingId);
+        if(idx === -1) return this.showToast("ERROR: MODULE NOT FOUND");
+        this.state.stacks[idx].title = title;
+        this.state.stacks[idx].content = content;
+        this.state.stacks[idx].date = new Date().toLocaleDateString();
+        localStorage.setItem(this.config.vaultKey, JSON.stringify(this.state.stacks));
+        this.showToast("MODULE UPDATED");
+      } else {
+        // Cria novo módulo
+        const mod = {
+          id: Date.now(),
+          title,
+          content: content || '<h1>Empty Module</h1>',
+          date: new Date().toLocaleDateString()
+        };
+        this.state.stacks.unshift(mod);
+        localStorage.setItem(this.config.vaultKey, JSON.stringify(this.state.stacks));
+        this.showToast("MODULE CRYSTALLIZED");
+      }
+
+      this.state.editingId = null;
+      this.renderVault();
+      this.toggleEditor(false);
+    },
+
+    handleUpload(e) {
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+          try {
+              const json = JSON.parse(ev.target.result);
+              if(Array.isArray(json) && json[0]?.id) {
+                  if(confirm("RESTORE BACKUP? This will merge with current vault.")) {
+                      this.state.stacks = [...json, ...this.state.stacks];
+                      this.state.stacks = this.state.stacks.filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i);
+                      localStorage.setItem(this.config.vaultKey, JSON.stringify(this.state.stacks));
+                      this.renderVault();
+                      this.showToast("BACKUP RESTORED");
+                      return;
+                  }
+              }
+          } catch(e) { /* Not a JSON array, treat as single file */ }
+
+        this.state.stacks.unshift({
+          id: Date.now(),
+          title: file.name,
+          content: ev.target.result,
+          date: new Date().toLocaleDateString()
+        });
+        localStorage.setItem(this.config.vaultKey, JSON.stringify(this.state.stacks));
+        this.renderVault();
+        this.showToast("FILE UPLOADED");
+      };
+      reader.readAsText(file);
+      // reset input so same file can be re-uploaded if needed
+      e.target.value = '';
+    },
+
+    deleteModule(id) {
+      if(!confirm("DELETE MODULE?")) return;
+      this.state.stacks = this.state.stacks.filter(s => s.id !== id);
+      localStorage.setItem(this.config.vaultKey, JSON.stringify(this.state.stacks));
+      this.renderVault();
+    },
+
+    // Novo: download individual
+    downloadModule(id) {
+      const mod = this.state.stacks.find(s => s.id === id);
+      if(!mod) return this.showToast("ERROR: NOT FOUND");
+      const blob = new Blob([mod.content], {type: 'text/html'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // sanitize filename
+      const safeName = (mod.title || 'module').replace(/[^\w\d\-_\.]/g,'_');
+      a.download = `${safeName}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.showToast("DOWNLOAD STARTED");
+    },
+
+    renderVault() {
+      this.dom.stackList.innerHTML = '';
+      document.getElementById('vaultCount').innerText = `${this.state.stacks.length} ITEMS`;
+
+      if(this.state.stacks.length === 0) {
+        this.dom.stackList.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-muted); font-family:var(--font-code); font-size:12px;">VAULT EMPTY</div>`;
+        return;
+      }
+
+      this.state.stacks.forEach(stack => {
+        const el = document.createElement('div');
+        el.className = 'stack-item';
+        el.innerHTML = `
+          <div class="stack-info">
+            <div class="stack-icon"><i data-lucide="box" style="width:16px;"></i></div>
+            <div class="stack-text">
+              <h4>${this.escapeHtml(stack.title)}</h4>
+              <span>${stack.date}</span>
+            </div>
+          </div>
+          <div class="stack-actions">
+            <button class="mini-btn btn-run" title="Run"><i data-lucide="play" style="width:12px;"></i></button>
+            <button class="mini-btn btn-edit" title="Edit"><i data-lucide="edit-2" style="width:12px;"></i></button>
+            <button class="mini-btn btn-dl" title="Download"><i data-lucide="download" style="width:12px;"></i></button>
+            <button class="mini-btn btn-del" title="Delete"><i data-lucide="trash-2" style="width:12px;"></i></button>
+          </div>
+        `;
+
+        // Bind actions
+        el.querySelector('.btn-run').onclick = (e) => { e.stopPropagation(); this.runModule(stack.id); };
+        el.querySelector('.btn-edit').onclick = (e) => { e.stopPropagation(); this.editModule(stack.id); };
+        el.querySelector('.btn-dl').onclick = (e) => { e.stopPropagation(); this.downloadModule(stack.id); };
+        el.querySelector('.btn-del').onclick = (e) => { e.stopPropagation(); this.deleteModule(stack.id); };
+        el.onclick = () => this.runModule(stack.id);
+
+        this.dom.stackList.appendChild(el);
+      });
+
+      if(window.lucide) lucide.createIcons();
+    },
+
+    escapeHtml(text) {
+      if(!text) return '';
+      return text.replace(/[&<>"']/g, function(m) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+      });
+    },
+
+    runModule(id) {
+      const mod = this.state.stacks.find(s => s.id === id);
+      if(!mod) return;
+
+      let code = mod.content;
+      if(this.state.safeMode) {
+        try {
+           if(!code.includes('<html') && !code.includes('<!doctype')) {
+             code = `<style>body{color:#fff;background:transparent;font-family:sans-serif}</style>${code}`;
+           }
+        } catch(e){}
+      }
+
+      this.dom.appFrame.srcdoc = code;
+      this.dom.runtimeLayer.classList.add('state-visible-y');
+      this.dom.sysStatus.innerText = "RUNNING";
+      this.dom.sysStatus.style.opacity = '0.7';
+    },
+
+    closeRuntime() {
+      this.dom.runtimeLayer.classList.remove('state-visible-y');
+      this.dom.sysStatus.style.opacity = '1';
+      this.dom.sysStatus.innerText = "ONLINE";
+      setTimeout(() => this.dom.appFrame.srcdoc = '', 400);
+    },
+
+    showToast(msg) {
+      this.dom.toast.innerText = msg;
+      this.dom.toast.classList.remove('toast-hidden');
+      clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => {
+        this.dom.toast.classList.add('toast-hidden');
+      }, 2200);
+    },
+
+    // Abre editor com módulo carregado (modo editar)
+    editModule(id) {
+      const mod = this.state.stacks.find(s => s.id === id);
+      if(!mod) return this.showToast("ERROR: MODULE NOT FOUND");
+      this.toggleEditor(true, mod);
+    },
+
+    // Novo: aceita URL, tenta fetch; se fetch falhar faz fallback para abrir navFrame
+    async handleRemoteUrl() {
+      const url = prompt("INSIRA URL (http(s)://...):");
+      if(!url) return;
+      try {
+        // tentativa de fetch do HTML (CORS pode bloquear)
+        const res = await fetch(url, {mode:'cors'});
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        const ct = res.headers.get('content-type') || '';
+        if(ct.includes('text/html') || ct.includes('application/xhtml+xml')) {
+          const text = await res.text();
+          // salva como módulo automaticamente
+          const mod = { id: Date.now(), title: url, content: text, date: new Date().toLocaleDateString() };
+          this.state.stacks.unshift(mod);
+          localStorage.setItem(this.config.vaultKey, JSON.stringify(this.state.stacks));
+          this.renderVault();
+          this.showToast("REMOTE SAVED TO VAULT");
+        } else {
+          // não-html — apenas abre no navFrame
+          this.dom.navFrame.src = url;
+          this.showToast("OPENED IN NAV (non-HTML)");
+        }
+      } catch(err) {
+        // Falha (CORS ou rede) — fallback: abrir no navFrame e avisar
+        try {
+          this.dom.navFrame.src = url;
+          this.showToast("FALLBACK: OPENED IN NAV (fetch failed)");
+        } catch(e) {
+          this.showToast("ERROR: COULD NOT OPEN URL");
+        }
+      }
+    }
+  };
+
+  window.onload = () => App.init();
+</script>
+
+<script>
+(function(){
+  // Guard: impede instalação duplicada
+  if (window.__nebula_zebkit_installed) {
+    console.warn('ZebKit já está operando nesta página.');
+    return;
+  }
+  window.__nebula_zebkit_installed = true;
+
+  const ZebKit = {
+    // 1. Escaneamento Robusto de Elementos Interativos
+    getButtons(root = document.body) {
+      const selector = [
+        'button',
+        '[role="button"]',
+        'input[type="button"]',
+        'input[type="submit"]',
+        'a[role="button"]',
+        'a[href][data-button]',
+        '.btn',
+        '.button',
+        '[class*="button"]',
+        '[data-nebula-button]'
+      ].join(',');
+      
+      const nodes = Array.from((root || document.body).querySelectorAll(selector));
+
+      return nodes.map((el, i) => {
+        // Garante ID único para comunicação precisa
+        if(!el.id) {
+          el.id = 'neb-auto-' + Math.random().toString(36).substr(2, 5) + '-' + i;
+        }
+        const rect = el.getBoundingClientRect();
+        return {
+          id: el.id,
+          tag: el.tagName.toLowerCase(),
+          text: (el.innerText || el.value || el.getAttribute('aria-label') || '').trim(),
+          classes: el.className || '',
+          dataset: {...el.dataset},
+          bounding: {
+            x: Math.round(rect.x), y: Math.round(rect.y),
+            width: Math.round(rect.width), height: Math.round(rect.height)
+          },
+          visible: !!(rect.width || rect.height),
+          tabIndex: el.tabIndex
+        };
+      });
+    },
+
+    // 2. Agrupamento por Classe (Útil para edições em massa no Iframe)
+    groupByClass(list = []) {
+      const groups = {};
+      list.forEach(item => {
+        const clsArr = (item.classes || '').split(/\s+/).filter(Boolean);
+        if(clsArr.length === 0) {
+          groups.__ungrouped = groups.__ungrouped || [];
+          groups.__ungrouped.push(item);
+        } else {
+          clsArr.forEach(c => {
+            groups[c] = groups[c] || [];
+            groups[c].push(item);
+          });
+        }
+      });
+      return groups;
+    },
+
+    // 3. Aplicação de Estilos (Individual ou por Classe)
+    applyStyles(id, className, styles = {}) {
+      let targets = [];
+      if (className) {
+        // Se houver classe, aplica em todos os elementos daquela classe (Edição em Massa)
+        const firstClass = className.split(' ')[0];
+        targets = Array.from(document.querySelectorAll('.' + firstClass));
+      } else {
+        // Caso contrário, aplica apenas no ID específico
+        const el = document.getElementById(id);
+        if(el) targets = [el];
+      }
+
+      targets.forEach(el => {
+        Object.assign(el.style, styles);
+      });
+      return targets.length > 0;
+    },
+
+    // 4. Efeito Visual de Destaque (Highlight)
+    highlightElement(id) {
+      const el = document.getElementById(id);
+      if(!el) return false;
+      
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const prevOutline = el.style.outline;
+      const prevOffset = el.style.outlineOffset;
+      
+      el.style.outline = '4px solid #00f2ff';
+      el.style.outlineOffset = '2px';
+      
+      setTimeout(() => {
+        el.style.outline = prevOutline || '';
+        el.style.outlineOffset = prevOffset || '';
+      }, 1600);
+      return true;
+    },
+
+    // 5. Injeção de CSS Global
+    injectCss(content, fileId) {
+      const tagId = 'zebkit-css-' + (fileId || 'global');
+      let styleTag = document.getElementById(tagId);
+      if(!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = tagId;
+        document.head.appendChild(styleTag);
+      }
+      styleTag.textContent = content || '';
+      return tagId;
+    }
+  };
+
+  // --- Listener de Mensagens (Comunicação com o Iframe NEBULA) ---
+  window.addEventListener('message', (ev) => {
+    const d = ev.data;
+    if(!d || !d.type) return;
+
+    const source = ev.source || window;
+    const origin = ev.origin || '*';
+
+    switch(d.type) {
+      case 'NEBULA_SCAN_REQ':
+        const tree = ZebKit.getButtons();
+        const groups = ZebKit.groupByClass(tree);
+        source.postMessage({ 
+          type: 'NEBULA_SCAN_RES', 
+          tree, 
+          groups, 
+          domain: window.location.hostname 
+        }, origin);
+        break;
+
+      case 'NEBULA_HIGHLIGHT':
+        const hOk = ZebKit.highlightElement(d.id);
+        source.postMessage({ type: 'NEBULA_HIGHLIGHT_ACK', id: d.id, ok: hOk }, origin);
+        break;
+
+      case 'NEBULA_UPDATE_STYLE':
+        const sOk = ZebKit.applyStyles(d.id, d.className, d.styles);
+        source.postMessage({ type: 'NEBULA_UPDATE_ACK', id: d.id, ok: sOk }, origin);
+        break;
+
+      case 'NEBULA_CSS_FILE':
+        const tagId = ZebKit.injectCss(d.content, d.fileId);
+        source.postMessage({ type: 'NEBULA_CSS_ACK', fileId: d.fileId, tagId }, origin);
+        break;
+    }
+  });
+
+  // Exposição Global e Log de Sucesso
+  window.ZebKit = ZebKit;
+  console.log('%c🌌 NEBULA ZebKit Unificado | Ativo em: ' + window.location.hostname, 'color: #00f2ff; font-weight: bold; background: #00151a; padding: 4px 8px; border-radius: 4px;');
+})();
+</script>
+
+</body>
+</html>
